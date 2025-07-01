@@ -1,0 +1,132 @@
+ion-header {
+  ion-toolbar {
+    --background: #007bff; /* Primary blue for header */
+    color: white;
+    --ion-color-base: #fff; /* Title color */
+  }
+}
+
+ion-content {
+  --background: #f0f2f5; /* Light grey background for chat area */
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end; /* Push content to the bottom */
+  height: 100%;
+}
+
+.chat-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding-bottom: constant(safe-area-inset-bottom); /* For iOS notch */
+  padding-bottom: env(safe-area-inset-bottom); /* For iOS notch */
+}
+
+.messages-display {
+  flex-grow: 1; /* Take available space */
+  overflow-y: auto; /* Enable scrolling for messages */
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px; /* Space between messages */
+}
+
+.message-bubble {
+  max-width: 80%; /* Limit message width */
+  padding: 10px 15px;
+  border-radius: 20px;
+  position: relative;
+  font-size: 0.95em;
+  line-height: 1.4;
+  word-wrap: break-word; /* Ensure long words wrap */
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1); /* Subtle shadow */
+}
+
+.user-message {
+  background-color: #dcf8c6; /* Light green for user messages */
+  align-self: flex-end; /* Align to the right */
+  border-bottom-right-radius: 5px; /* Sharper corner on bottom right */
+}
+
+.bot-message {
+  background-color: #ffffff; /* White for bot messages */
+  align-self: flex-start; /* Align to the left */
+  border-bottom-left-radius: 5px; /* Sharper corner on bottom left */
+}
+
+.timestamp {
+  display: block;
+  font-size: 0.7em;
+  color: #888;
+  margin-top: 5px;
+  text-align: right; /* Align timestamp to the right for user, left for bot */
+}
+
+.bot-message .timestamp {
+  text-align: left;
+}
+
+.typing-indicator {
+  background-color: #e0e0e0;
+  color: #555;
+  font-style: italic;
+  animation: pulse 1.5s infinite ease-in-out;
+}
+
+@keyframes pulse {
+  0% { opacity: 0.7; }
+  50% { opacity: 1; }
+  100% { opacity: 0.7; }
+}
+
+ion-footer {
+  --background: #f0f2f5; /* Match content background */
+  border-top: 1px solid #ddd; /* Separator line */
+  padding: 5px 0;
+}
+
+.message-input-item {
+  --background: #ffffff;
+  border-radius: 25px;
+  padding-left: 10px;
+  padding-right: 5px;
+  margin: 0 10px; /* Margin around the input */
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.message-input {
+  --padding-start: 15px;
+  --padding-end: 10px;
+  font-size: 1em;
+}
+
+ion-button {
+  --border-radius: 50%; /* Circular button */
+  --padding-start: 10px;
+  --padding-end: 10px;
+  --background: #007bff;
+  --background-activated: #0056b3;
+  margin-left: 5px;
+}
+
+ion-icon {
+  font-size: 1.3em;
+  color: white;
+}
+
+/* Responsive adjustments */
+@media (min-width: 768px) {
+  .chat-container {
+    max-width: 700px; /* Max width for larger screens */
+    margin: 0 auto; /* Center the chat container */
+    border-left: 1px solid #ddd;
+    border-right: 1px solid #ddd;
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.05); /* More prominent shadow on desktop */
+  }
+
+  ion-footer {
+    .message-input-item {
+      margin: 0 20px; /* More margin on larger screens */
+    }
+  }
+}

@@ -1,0 +1,204 @@
+// Jenkinsfile
+// This Jenkinsfile defines a CI/CD pipeline for a full-stack application
+// consisting of an Ionic Angular frontend and a Spring Boot backend.
+
+pipeline {
+    // Define agent to specify where the pipeline will run.
+    // 'any' means Jenkins will run the pipeline on any available agent.
+    // For production, you might specify a label like 'agent { label 'docker' }'
+    // if you have specific agents configured.
+    agent any
+
+    // Environment variables that will be used throughout the pipeline.
+    // IMPORTANT: Never hardcode sensitive information like API keys here.
+    // Use Jenkins credentials for production.
+    environment {
+        // Frontend variables
+        FRONTEND_DIR = 'frontend-angular' // Assuming your Ionic project is in this directory
+        FRONTEND_PORT = '8100'
+        // Backend variables
+        BACKEND_DIR = 'backend'   // Assuming your Spring Boot project is in this directory
+        BACKEND_PORT = '8080'
+        // Docker Registry (if you plan to push images)
+        DOCKER_REGISTRY = 'your-docker-registry.com' // e.g., 'docker.io/yourusername'
+        DOCKER_USERNAME = credentials('docker-hub-username') // Jenkins Credential ID for Docker username
+        DOCKER_PASSWORD = credentials('docker-hub-password') // Jenkins Credential ID for Docker password
+        // OpenAI API Key (use Jenkins credentials for this in production)
+        // OPENAI_API_KEY = credentials('openai-api-key') // Example of using Jenkins credential
+    }
+
+    // Define global options for the pipeline.
+    options {
+        // Discard old builds to save disk space. Keep only the last 10 builds.
+        buildDiscarder(logRotator(numToKeepStr: '10'))
+        // Enable timestamps for console output, useful for debugging.
+        timestamps()
+        // Set a timeout for the entire pipeline (e.g., 2 hours).
+        timeout(time: 2, unit: 'HOURS')
+    }
+
+    // Define the stages of the CI/CD pipeline.
+    stages {
+        // Stage 1: Checkout Source Code
+        stage('Checkout') {
+            steps {
+                script {
+                    echo 'Checking out source code...'
+                    // Checkout the SCM (Source Code Management) from the Jenkins job configuration.
+                    // This typically fetches code from your Git repository.
+                    checkout scm
+                    echo 'Source code checked out successfully.'
+                }
+            }
+        }
+
+        // Stage 2: Build Frontend (Ionic Angular)
+        stage('Build Frontend') {
+            steps {
+                dir("${FRONTEND_DIR}") { // Change directory to the frontend project
+                    echo 'Installing frontend dependencies...'
+                    sh 'npm install' // Install Node.js dependencies
+                    echo 'Building Ionic Angular application...'
+                    // Build the Ionic Angular application for production.
+                    // '--prod' flag enables production optimizations.
+                    // '--output-path' specifies where the build artifacts will be placed.
+                    sh 'npm run build -- --prod --output-path=www'
+                    echo 'Frontend build complete.'
+                }
+            }
+        }
+
+        // Stage 3: Test Frontend (Optional, if you have unit/e2e tests)
+        stage('Test Frontend') {
+            steps {
+                dir("${FRONTEND_DIR}") {
+                    echo 'Running frontend tests...'
+                    // Example: Run Angular unit tests (Karma)
+                    // sh 'ng test --watch=false --browsers=ChromeHeadless'
+                    // Example: Run Cypress end-to-end tests
+                    // sh 'npm run e2e'
+                    echo 'Frontend tests (if configured) completed.'
+                }
+            }
+        }
+
+        // Stage 4: Build Backend (Spring Boot)
+        stage('Build Backend') {
+            steps {
+                dir("${BACKEND_DIR}") { // Change directory to the backend project
+                    echo 'Building Spring Boot application with Maven...'
+                    // Clean and package the Spring Boot application using Maven.
+                    // '-DskipTests' is often used in the build stage to speed up,
+                    // with tests run in a separate 'Test Backend' stage.
+                    sh 'mvn clean package -DskipTests'
+                    echo 'Backend build complete.'
+                }
+            }
+        }
+
+        // Stage 5: Test Backend
+        stage('Test Backend') {
+            steps {
+                dir("${BACKEND_DIR}") {
+                    echo 'Running backend tests...'
+                    // Run Maven tests.
+                    sh 'mvn test'
+                    echo 'Backend tests completed.'
+                }
+            }
+        }
+
+        // Stage 6: Dockerize Applications (Optional, but recommended for deployment)
+        stage('Dockerize') {
+            steps {
+                script {
+                    echo 'Building Docker images...'
+                    // Dockerize Frontend
+                    dir("${FRONTEND_DIR}") {
+                        // Create a simple Dockerfile for the Ionic frontend (e.g., serving with Nginx)
+                        writeFile file: 'Dockerfile', text: """
+                            # Use a lightweight Nginx image
+                            FROM nginx:alpine
+                            # Copy the built Angular app to Nginx's default public directory
+                            COPY www /usr/share/nginx/html
+                            # Expose the port Nginx runs on
+                            EXPOSE 80
+                            # Start Nginx
+                            CMD ["nginx", "-g", "daemon off;"]
+                        """.stripIndent()
+                        sh "docker build -t ${DOCKER_REGISTRY}/ionic-chatbot-frontend:${env.BUILD_NUMBER} ."
+                        // Push to Docker Registry (requires login)
+                        // withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
+                        //     sh "echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin ${DOCKER_REGISTRY}"
+                        //     sh "docker push ${DOCKER_REGISTRY}/ionic-chatbot-frontend:${env.BUILD_NUMBER}"
+                        // }
+                    }
+
+                    // Dockerize Backend
+                    dir("${BACKEND_DIR}") {
+                        // Create a simple Dockerfile for the Spring Boot backend
+                        writeFile file: 'Dockerfile', text: """
+                            # Use a Java base image
+                            FROM openjdk:17-jdk-slim
+                            # Set working directory
+                            WORKDIR /app
+                            # Copy the Spring Boot JAR from the target directory
+                            COPY target/*.jar app.jar
+                            # Expose the application port
+                            EXPOSE ${BACKEND_PORT}
+                            # Run the Spring Boot application
+                            ENTRYPOINT ["java", "-jar", "app.jar"]
+                        """.stripIndent()
+                        sh "docker build -t ${DOCKER_REGISTRY}/spring-chatbot-backend:${env.BUILD_NUMBER} ."
+                        // Push to Docker Registry (requires login)
+                        // withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
+                        //     sh "echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin ${DOCKER_REGISTRY}"
+                        //     sh "docker push ${DOCKER_REGISTRY}/spring-chatbot-backend:${env.BUILD_NUMBER}"
+                        // }
+                    }
+                    echo 'Docker images built (and pushed, if configured).'
+                }
+            }
+        }
+
+        // Stage 7: Deploy (Example - manual or automated)
+        stage('Deploy') {
+            steps {
+                script {
+                    echo 'Deploying applications...'
+                    // This stage is highly dependent on your deployment environment (e.g., Kubernetes, AWS EC2, Azure App Service, Google Cloud Run).
+                    // Examples:
+                    // 1. Deploy to a Kubernetes cluster:
+                    //    sh 'kubectl apply -f k8s/frontend-deployment.yaml'
+                    //    sh 'kubectl apply -f k8s/backend-deployment.yaml'
+                    // 2. Deploy to a remote server via SSH:
+                    //    sshagent(['your-ssh-credential-id']) {
+                    //        sh "ssh user@your-server 'sudo systemctl restart frontend-service'"
+                    //        sh "ssh user@your-server 'sudo systemctl restart backend-service'"
+                    //    }
+                    // 3. Deploy Docker containers:
+                    //    sh "docker run -d -p ${FRONTEND_PORT}:80 ${DOCKER_REGISTRY}/ionic-chatbot-frontend:${env.BUILD_NUMBER}"
+                    //    sh "docker run -d -p ${BACKEND_PORT}:${BACKEND_PORT} ${DOCKER_REGISTRY}/spring-chatbot-backend:${env.BUILD_NUMBER}"
+                    echo 'Deployment steps would go here.'
+                }
+            }
+        }
+    }
+
+    // Post-build actions (e.g., send notifications)
+    post {
+        always {
+            echo 'Pipeline finished.'
+            // Clean up workspace after build
+            deleteDir()
+        }
+        success {
+            echo 'Pipeline succeeded!'
+            // mail to: 'your-email@example.com', subject: "CI/CD Success: ${env.JOB_NAME} - Build #${env.BUILD_NUMBER}", body: "The pipeline for ${env.JOB_NAME} build #${env.BUILD_NUMBER} succeeded."
+        }
+        failure {
+            echo 'Pipeline failed!'
+            // mail to: 'your-email@example.com', subject: "CI/CD FAILED: ${env.JOB_NAME} - Build #${env.BUILD_NUMBER}", body: "The pipeline for ${env.JOB_NAME} build #${env.BUILD_NUMBER} FAILED. Check console output for details."
+        }
+    }
+}

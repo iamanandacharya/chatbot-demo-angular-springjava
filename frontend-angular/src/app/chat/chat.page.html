@@ -1,0 +1,39 @@
+<ion-header [translucent]="true">
+  <ion-toolbar>
+    <ion-title>
+      Customer Support Chat
+    </ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true" class="ion-padding">
+  <div class="chat-container">
+    <!-- Chat messages display area -->
+    <div class="messages-display" #messagesDisplay>
+      <div *ngFor="let msg of messages" [class]="msg.sender === 'user' ? 'message-bubble user-message' : 'message-bubble bot-message'">
+        <p>{{ msg.text }}</p>
+        <span class="timestamp">{{ msg.timestamp | date:'shortTime' }}</span>
+      </div>
+      <div *ngIf="isTyping" class="message-bubble bot-message typing-indicator">
+        <p>Bot is typing...</p>
+      </div>
+    </div>
+   <!-- Message input area -->
+    <ion-footer class="ion-no-border">
+      <ion-toolbar>
+        <ion-item class="message-input-item">
+          <ion-input
+            [(ngModel)]="newMessage"
+            placeholder="Type your message..."
+            (keyup.enter)="sendMessage()"
+            class="message-input"
+          ></ion-input>
+          <ion-button slot="end" (click)="sendMessage()" [disabled]="!newMessage.trim()">
+            <ion-icon name="send"></ion-icon>
+          </ion-button>
+        </ion-item>
+      </ion-toolbar>
+    </ion-footer>
+</ion-content>
+
+
